@@ -46,18 +46,38 @@ func UpdateScheduledRepaymentStatus(ctx context.Context, tx *sql.Tx, scheduledRe
 	return nil
 }
 
-func GetScheduledRepaymentsByLoanID(ctx context.Context, loanID string) ([]models.ScheduledRepayment, error) {
-	results, err := GetConnection().Query("SELECT id, status FROM scheduled_repayments WHERE loan_id = ?", loanID)
+// GetScheduledRepaymentsByLoanID fetches all the scheduled repayments for a loanID
+func GetScheduledRepaymentsByLoanID(ctx context.Context, tx *sql.Tx, loanID string) ([]models.ScheduledRepayment, error) {
+	var results *sql.Rows
+	var err error
+	fetchQuery := "SELECT id, loan_id, amount, date, status FROM scheduled_repayments WHERE loan_id = ?"
+	if tx == nil {
+		results, err = GetConnection().QueryContext(ctx, fetchQuery, loanID)
+	} else {
+		results, err = tx.QueryContext(ctx, fetchQuery, loanID)
+	}
 	if err != nil {
 		return []models.ScheduledRepayment{}, err
 	}
 	scheduledRepayments := make([]models.ScheduledRepayment, 0)
 	for results.Next() {
 		var scheduledRepayment models.ScheduledRepayment
-		if err := results.Scan(&scheduledRepayment.ID, &scheduledRepayment.Status); err != nil {
+		if err := results.Scan(&scheduledRepayment.ID, &scheduledRepayment.LoanID, &scheduledRepayment.Amount, &scheduledRepayment.Date, &scheduledRepayment.Status); err != nil {
 			return []models.ScheduledRepayment{}, err
 		}
 		scheduledRepayments = append(scheduledRepayments, scheduledRepayment)
 	}
 	return scheduledRepayments, nil
+}
+
+// GetScheduledRepaymentsByID fetches a scheduled repayment by ID
+func GetScheduledRepaymentsByID(ctx context.Context, scheduledRepaymentID string) (models.ScheduledRepayment, error) {
+	var scheduledRepayment models.ScheduledRepayment
+	err := GetConnection().
+		QueryRow("SELECT id, loan_id, amount, date, status FROM scheduled_repayments WHERE id = ?", scheduledRepaymentID).
+		Scan(&scheduledRepayment.ID, &scheduledRepayment.LoanID, &scheduledRepayment.Amount, &scheduledRepayment.Date, &scheduledRepayment.Status)
+	if err != nil {
+		return models.ScheduledRepayment{}, err
+	}
+	return scheduledRepayment, nil
 }

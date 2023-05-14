@@ -8,8 +8,8 @@ import (
 	"github.com/mayankpahwa/aspire-loan-app/internal/resources/models"
 )
 
-func InsertPayment(ctx context.Context, tx *sql.Tx, repayments models.Repayment) error {
-	insertPaymentQuery := "INSERT INTO `payments` (`id`, `scheduled_repayments_id`, `amount`) VALUES (?, ?, ?)"
+func InsertRepayment(ctx context.Context, tx *sql.Tx, repayments models.Repayment) error {
+	insertPaymentQuery := "INSERT INTO `repayments` (`id`, `scheduled_repayments_id`, `amount`) VALUES (?, ?, ?)"
 
 	result, err := tx.ExecContext(ctx, insertPaymentQuery, repayments.ID, repayments.ScheduledRepaymentID, repayments.Amount)
 	if err != nil {

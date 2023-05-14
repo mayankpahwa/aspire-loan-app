@@ -50,8 +50,15 @@ func InsertUserLoan(ctx context.Context, tx *sql.Tx, loanToInsert models.UserLoa
 }
 
 func UpdateUserLoanStatus(ctx context.Context, tx *sql.Tx, loanID, status string) error {
-	result, err := tx.
-		ExecContext(ctx, "UPDATE `loans` SET `status` = ? WHERE `id` = ?", status, loanID)
+	var result sql.Result
+	var err error
+	updateQuery := "UPDATE `loans` SET `status` = ? WHERE `id` = ?"
+
+	if tx == nil {
+		result, err = GetConnection().ExecContext(ctx, updateQuery, status, loanID)
+	} else {
+		result, err = tx.ExecContext(ctx, updateQuery, status, loanID)
+	}
 	if err != nil {
 		return err
 	}
