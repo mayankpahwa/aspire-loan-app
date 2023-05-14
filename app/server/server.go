@@ -27,10 +27,13 @@ func New() (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load envs")
 	}
-	if err := mysql.InitDatabase(); err != nil {
+	if err := mysql.InitDatabase(conf); err != nil {
 		return nil, errors.Wrap(err, "could not initialize database")
 	}
 
+	if err := mysql.LoadSQLFile(conf.MigrationPath); err != nil {
+		return nil, errors.Wrap(err, "error running migrations")
+	}
 	handler, err := routing.Handler(conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not init handler")

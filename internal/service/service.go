@@ -17,7 +17,7 @@ import (
 func CreateUser(ctx context.Context, req ahttp.CreateUserRequest) (ahttp.CreateUserResponse, error) {
 	_, err := mysql.GetUserByID(ctx, req.ID)
 	if err == nil {
-		return ahttp.CreateUserResponse{}, errors.Wrap(types.ErrNoResourceFound, "user already exists")
+		return ahttp.CreateUserResponse{}, errors.Wrap(types.ErrUnprocessableEntity, "user already exists")
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return ahttp.CreateUserResponse{}, err

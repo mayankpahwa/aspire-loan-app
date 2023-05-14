@@ -4,15 +4,16 @@ import (
 	"database/sql"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/mayankpahwa/aspire-loan-app/app/config"
 )
 
 var conn *sql.DB
 
-func InitDatabase() error {
+func InitDatabase(config config.Config) error {
 	if conn != nil {
 		return nil
 	}
-	db, err := sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/aspire")
+	db, err := sql.Open("mysql", config.DB.DSN)
 	if err != nil {
 		return err
 	}
@@ -21,8 +22,5 @@ func InitDatabase() error {
 }
 
 func GetConnection() *sql.DB {
-	if conn != nil {
-		InitDatabase()
-	}
 	return conn
 }
