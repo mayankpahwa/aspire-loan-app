@@ -1,21 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net/http"
+
+	"github.com/mayankpahwa/aspire-loan-app/app/server"
 )
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-
-	fmt.Fprintf(w, "Hello!")
-}
-
 func main() {
-	http.HandleFunc("/hello", helloHandler) // Update this line of code
-
-	fmt.Printf("Starting server at port 8080\n")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
+	svr, err := server.New()
+	if err != nil {
+		log.Fatalf("could not start server: %v", err)
 	}
+	svr.ListenAndServe()
 }
