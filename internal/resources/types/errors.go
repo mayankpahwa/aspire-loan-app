@@ -8,6 +8,8 @@ const (
 	MsgUnprocessableEntity = "got unprocessable request"
 	MsgNoResultForPage     = "no result found for page"
 	MsgNoResourceFound     = "no resource found"
+	MsgUnauthorized        = "not authorized to perform this request"
+	MsgForbidden           = "forbidden"
 )
 
 var (
@@ -22,4 +24,10 @@ var (
 
 	// ErrUnprocessableEntity is the error returned when client send unprocessable request.
 	ErrUnprocessableEntity = errors.New(MsgUnprocessableEntity)
+
+	// ErrUnauthorized is the error returned when client send unprocessable request.
+	ErrUnauthorized = errors.New(MsgUnauthorized)
+
+	// ErrForbidden is the error returned when client send unprocessable request.
+	ErrForbidden = errors.New(MsgForbidden)
 )

@@ -7,7 +7,7 @@ import (
 type ScheduledRepayment struct {
 	ID     uuid.UUID `db:"id"`
 	LoanID uuid.UUID `db:"loan_id"`
-	Amount int       `db:"amount"`
+	Amount float64   `db:"amount"`
 	Date   string    `db:"date"`
 	Status string    `db:"status"`
 }
@@ -15,5 +15,5 @@ type ScheduledRepayment struct {
 type Repayment struct {
 	ID                   uuid.UUID `db:"id"`
 	ScheduledRepaymentID uuid.UUID `db:"scheduled_repayment_id"`
-	Amount               int       `db:"amount"`
+	Amount               float64   `db:"amount"`
 }
