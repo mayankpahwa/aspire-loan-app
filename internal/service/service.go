@@ -168,12 +168,13 @@ func getScheduledRepayments(loan models.UserLoan) []models.ScheduledRepayment {
 	scheduledRepayments := make([]models.ScheduledRepayment, 0)
 	loanStartDate, _ := time.Parse("2006-01-02", loan.DateCreated)
 	repaymentInstallation := float64(loan.Amount) / float64(loan.Term)
-	for i := 1; i <= loan.Term; i++ {
+	scheduledRepaymentDates := getScheduledRepaymentDates(loanStartDate, loan.Term)
+	for _, termDate := range scheduledRepaymentDates {
 		scheduledRepayment := models.ScheduledRepayment{
 			ID:     uuid.New(),
 			LoanID: loan.ID,
 			Amount: repaymentInstallation,
-			Date:   loanStartDate.AddDate(0, 0, 7*i).Format("2006-01-02"),
+			Date:   termDate,
 			Status: types.ScheduledRepaymentStatusPending.ToString(),
 		}
 		scheduledRepayments = append(scheduledRepayments, scheduledRepayment)
@@ -188,6 +189,15 @@ func getRepayment(scheduledRepayment ahttp.CreateUserLoanRepaymentRequest) model
 		ScheduledRepaymentID: scheduledRepaymentID,
 		Amount:               scheduledRepayment.Amount,
 	}
+}
+
+func getScheduledRepaymentDates(startDate time.Time, term int) []string {
+	repaymentDates := make([]string, 0)
+	for i := 1; i <= term; i++ {
+		repaymentDate := startDate.AddDate(0, 0, 7*i).Format("2006-01-02")
+		repaymentDates = append(repaymentDates, repaymentDate)
+	}
+	return repaymentDates
 }
 
 func shouldChangeLoanStatus(scheduledRepayments []models.ScheduledRepayment) bool {
