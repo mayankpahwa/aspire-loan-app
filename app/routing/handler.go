@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CreateUserHandler() http.HandlerFunc {
+func CreateUserHandler(service service.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ahttp.CreateUserRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -28,7 +28,7 @@ func CreateUserHandler() http.HandlerFunc {
 	})
 }
 
-func GetUserLoansHandler() http.HandlerFunc {
+func GetUserLoansHandler(service service.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := chi.URLParam(r, "userID")
 		resp, err := service.GetUserLoans(r.Context(), userID)
@@ -40,7 +40,7 @@ func GetUserLoansHandler() http.HandlerFunc {
 	})
 }
 
-func GetUserLoanByIDHandler() http.HandlerFunc {
+func GetUserLoanByIDHandler(service service.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := chi.URLParam(r, "userID")
 		loanID := chi.URLParam(r, "loanID")
@@ -53,7 +53,7 @@ func GetUserLoanByIDHandler() http.HandlerFunc {
 	})
 }
 
-func CreateUserLoanHandler() http.HandlerFunc {
+func CreateUserLoanHandler(service service.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ahttp.CreateLoanRequest
 		userID := chi.URLParam(r, "userID")
@@ -71,7 +71,7 @@ func CreateUserLoanHandler() http.HandlerFunc {
 	})
 }
 
-func UpdateUserLoanByIDHandler() http.HandlerFunc {
+func UpdateUserLoanByIDHandler(service service.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Context().Value(ContextUserIDKey) != "aspire" {
 			WriteError(r, w, errors.Wrap(types.ErrForbidden, "only admin can approve a loan"))
@@ -100,7 +100,7 @@ func UpdateUserLoanByIDHandler() http.HandlerFunc {
 	})
 }
 
-func CreateUserLoanRepaymentHandler() http.HandlerFunc {
+func CreateUserLoanRepaymentHandler(service service.Service) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req ahttp.CreateUserLoanRepaymentRequest
 		userID := chi.URLParam(r, "userID")

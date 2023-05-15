@@ -8,6 +8,7 @@ import (
 	"github.com/mayankpahwa/aspire-loan-app/app/config"
 	"github.com/mayankpahwa/aspire-loan-app/app/routing"
 	"github.com/mayankpahwa/aspire-loan-app/internal/repo/mysql"
+	"github.com/mayankpahwa/aspire-loan-app/internal/service"
 	"github.com/pkg/errors"
 )
 
@@ -34,7 +35,12 @@ func New() (*Server, error) {
 	if err := mysql.LoadSQLFile(conf.MigrationPath); err != nil {
 		return nil, errors.Wrap(err, "error running migrations")
 	}
-	handler, err := routing.Handler(conf)
+
+	repo := mysql.NewRepo(
+		mysql.GetConnection(),
+	)
+	service := service.NewService(repo)
+	handler, err := routing.Handler(conf, service)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not init handler")
 	}

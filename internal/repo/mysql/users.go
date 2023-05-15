@@ -8,9 +8,9 @@ import (
 )
 
 // GetUserByID fetches a user by ID
-func GetUserByID(ctx context.Context, userID string) (models.User, error) {
+func (r Repo) GetUserByID(ctx context.Context, userID string) (models.User, error) {
 	var user models.User
-	err := GetConnection().
+	err := r.GetExecutor(ctx).
 		QueryRowContext(ctx, "SELECT id, password FROM users WHERE id = ?", userID).
 		Scan(&user.ID, &user.Password)
 	if err != nil {
@@ -20,8 +20,8 @@ func GetUserByID(ctx context.Context, userID string) (models.User, error) {
 }
 
 // CreateUser inserts an entry into the `users` table
-func CreateUser(ctx context.Context, user models.User) error {
-	result, err := GetConnection().
+func (r Repo) CreateUser(ctx context.Context, user models.User) error {
+	result, err := r.GetExecutor(ctx).
 		ExecContext(ctx, "INSERT INTO `users` (`id`, `password`) VALUES (?, ?)", user.ID, user.Password)
 	if err != nil {
 		return err
