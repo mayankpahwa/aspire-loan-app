@@ -19,6 +19,11 @@ func CreateUserHandler(service service.Service) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		validate := validator.New()
+		if err := validate.Struct(req); err != nil {
+			WriteError(r, w, errors.Wrap(types.ErrMalformedRequest, err.Error()))
+			return
+		}
 		resp, err := service.CreateUser(r.Context(), req)
 		if err != nil {
 			WriteError(r, w, err)
@@ -62,6 +67,11 @@ func CreateUserLoanHandler(service service.Service) http.HandlerFunc {
 			return
 		}
 		req.UserID = userID
+		validate := validator.New()
+		if err := validate.Struct(req); err != nil {
+			WriteError(r, w, errors.Wrap(types.ErrMalformedRequest, err.Error()))
+			return
+		}
 		resp, err := service.CreateUserLoan(r.Context(), req)
 		if err != nil {
 			WriteError(r, w, err)

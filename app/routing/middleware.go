@@ -48,7 +48,7 @@ func ValidationUserIdMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		userIDPath := chi.URLParam(r, "userID")
 		userIDAuth := r.Context().Value(ContextUserIDKey)
 		if userIDPath != userIDAuth {
-			errors.Wrap(types.ErrUnauthorized, "cannot access resources of a different user")
+			WriteError(r, w, errors.Wrap(types.ErrUnauthorized, "cannot access resources of a different user"))
 			return
 		}
 		next.ServeHTTP(w, r)

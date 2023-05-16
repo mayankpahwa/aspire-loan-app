@@ -2,8 +2,8 @@ package ahttp
 
 type CreateLoanRequest struct {
 	UserID string `json:"-"`
-	Amount int    `json:"amount"`
-	Term   int    `json:"term"`
+	Amount int    `json:"amount" validate:"required,gt=0"`
+	Term   int    `json:"term" validate:"required,gt=0"`
 }
 
 type CreateLoanResponse struct {

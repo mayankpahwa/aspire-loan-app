@@ -77,7 +77,11 @@ func (s Service) GetUserLoanByID(ctx context.Context, userID, loanID string) (ah
 		}
 		return ahttp.SingleUserLoanResponse{}, errors.Wrap(err, "failed fetching user loan by id")
 	}
-	return createGetUserLoanByIDResponse(result), nil
+	scheduledRepayments, err := s.Repo.GetScheduledRepaymentsByLoanID(ctx, result.ID.String())
+	if err != nil {
+		return ahttp.SingleUserLoanResponse{}, errors.Wrap(err, "failed fetching scheduled repayments")
+	}
+	return createGetUserLoanByIDResponse(result, scheduledRepayments), nil
 }
 
 // UpdateUserLoanStatus updates a loan status
@@ -110,8 +114,11 @@ func (s Service) CreateUserLoanRepayment(ctx context.Context, req ahttp.CreateUs
 		}
 		return err
 	}
-	if loanFromDB.Status != types.LoanStatusApproved.ToString() {
-		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("Loan not in APPROVED status"))
+	if loanFromDB.Status == types.LoanStatusPending.ToString() {
+		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("cannot create payment for PENDING loan"))
+	}
+	if loanFromDB.Status == types.LoanStatusPaid.ToString() {
+		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("Loan already in PAID state"))
 	}
 	scheduledRepaymentFromDB, err := s.Repo.GetScheduledRepaymentsByID(ctx, req.ScheduledRepaymentID)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 )
 
 func (r Repo) InsertRepayment(ctx context.Context, repayments models.Repayment) error {
-	insertPaymentQuery := "INSERT INTO `repayments` (`id`, `scheduled_repayments_id`, `amount`) VALUES (?, ?, ?)"
+	insertPaymentQuery := "INSERT INTO `repayments` (`id`, `scheduled_repayment_id`, `amount`) VALUES (?, ?, ?)"
 
 	result, err := r.GetExecutor(ctx).ExecContext(ctx, insertPaymentQuery, repayments.ID, repayments.ScheduledRepaymentID, repayments.Amount)
 	if err != nil {
