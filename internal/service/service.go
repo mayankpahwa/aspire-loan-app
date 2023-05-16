@@ -14,8 +14,18 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CreateUser(ctx context.Context, req ahttp.CreateUserRequest) (ahttp.CreateUserResponse, error) {
-	_, err := mysql.GetUserByID(ctx, req.ID)
+type Service struct {
+	Repo mysql.Repo
+}
+
+func NewService(repo mysql.Repo) Service {
+	return Service{
+		Repo: repo,
+	}
+}
+
+func (s Service) CreateUser(ctx context.Context, req ahttp.CreateUserRequest) (ahttp.CreateUserResponse, error) {
+	_, err := s.Repo.GetUserByID(ctx, req.ID)
 	if err == nil {
 		return ahttp.CreateUserResponse{}, errors.Wrap(types.ErrUnprocessableEntity, "user already exists")
 	}
@@ -26,35 +36,32 @@ func CreateUser(ctx context.Context, req ahttp.CreateUserRequest) (ahttp.CreateU
 		ID:       req.ID,
 		Password: req.Password,
 	}
-	if err := mysql.CreateUser(ctx, userToInsert); err != nil {
+	if err := s.Repo.CreateUser(ctx, userToInsert); err != nil {
 		return ahttp.CreateUserResponse{}, err
 	}
 	return ahttp.CreateUserResponse{ID: req.ID}, nil
 }
 
 // CreateUserLoan inserts a user loan and its scheduled payments
-func CreateUserLoan(ctx context.Context, req ahttp.CreateLoanRequest) (ahttp.SingleUserLoanResponse, error) {
+func (s Service) CreateUserLoan(ctx context.Context, req ahttp.CreateLoanRequest) (ahttp.SingleUserLoanResponse, error) {
+	var scheduledRepayments []models.ScheduledRepayment
 	loanToInsert := getLoanToInsert(req)
-	tx, err := mysql.GetConnection().BeginTx(ctx, nil)
+	err := s.Repo.RunInTransaction(ctx, func(ctx context.Context) error {
+		if err := s.Repo.InsertUserLoan(ctx, loanToInsert); err != nil {
+			return err
+		}
+		scheduledRepayments = getScheduledRepayments(loanToInsert)
+		return s.Repo.InsertScheduledRepayments(ctx, scheduledRepayments)
+	})
 	if err != nil {
-		return ahttp.SingleUserLoanResponse{}, err
+		return ahttp.SingleUserLoanResponse{}, nil
 	}
-	if err := mysql.InsertUserLoan(ctx, tx, loanToInsert); err != nil {
-		tx.Rollback()
-		return ahttp.SingleUserLoanResponse{}, err
-	}
-	scheduledRepayments := getScheduledRepayments(loanToInsert)
-	if err := mysql.InsertScheduledRepayments(ctx, tx, scheduledRepayments); err != nil {
-		tx.Rollback()
-		return ahttp.SingleUserLoanResponse{}, err
-	}
-	tx.Commit()
 	return createInsertUserLoanResponse(loanToInsert, scheduledRepayments), nil
 }
 
 // GetUserLoans fetches all loans for a user
-func GetUserLoans(ctx context.Context, userID string) (ahttp.GetUserLoansResponse, error) {
-	result, err := mysql.GetUserLoans(ctx, userID)
+func (s Service) GetUserLoans(ctx context.Context, userID string) (ahttp.GetUserLoansResponse, error) {
+	result, err := s.Repo.GetUserLoans(ctx, userID)
 	if err != nil {
 		return ahttp.GetUserLoansResponse{}, errors.Wrap(err, "failed fetching user loans")
 	}
@@ -62,20 +69,24 @@ func GetUserLoans(ctx context.Context, userID string) (ahttp.GetUserLoansRespons
 }
 
 // GetUserLoanByID fetches a user loan by loanID
-func GetUserLoanByID(ctx context.Context, userID, loanID string) (ahttp.SingleUserLoanResponse, error) {
-	result, err := mysql.GetUserLoanByID(ctx, userID, loanID)
+func (s Service) GetUserLoanByID(ctx context.Context, userID, loanID string) (ahttp.SingleUserLoanResponse, error) {
+	result, err := s.Repo.GetUserLoanByID(ctx, userID, loanID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ahttp.SingleUserLoanResponse{}, errors.Wrap(types.ErrNoResourceFound, "loan not found")
 		}
 		return ahttp.SingleUserLoanResponse{}, errors.Wrap(err, "failed fetching user loan by id")
 	}
-	return createGetUserLoanByIDResponse(result), nil
+	scheduledRepayments, err := s.Repo.GetScheduledRepaymentsByLoanID(ctx, result.ID.String())
+	if err != nil {
+		return ahttp.SingleUserLoanResponse{}, errors.Wrap(err, "failed fetching scheduled repayments")
+	}
+	return createGetUserLoanByIDResponse(result, scheduledRepayments), nil
 }
 
 // UpdateUserLoanStatus updates a loan status
-func UpdateUserLoanStatus(ctx context.Context, req ahttp.UpdateUserLoanRequest) (ahttp.UpdateUserLoanResponse, error) {
-	result, err := mysql.GetUserLoanByID(ctx, req.UserID, req.LoanID)
+func (s Service) UpdateUserLoanStatus(ctx context.Context, req ahttp.UpdateUserLoanRequest) (ahttp.UpdateUserLoanResponse, error) {
+	result, err := s.Repo.GetUserLoanByID(ctx, req.UserID, req.LoanID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ahttp.UpdateUserLoanResponse{}, errors.Wrap(types.ErrNoResourceFound, "loan not found")
@@ -88,25 +99,28 @@ func UpdateUserLoanStatus(ctx context.Context, req ahttp.UpdateUserLoanRequest) 
 	if result.Status == types.LoanStatusApproved.ToString() {
 		return ahttp.UpdateUserLoanResponse{Status: req.Status}, nil
 	}
-	if err := mysql.UpdateUserLoanStatus(ctx, nil, req.LoanID, types.LoanStatusApproved.ToString()); err != nil {
+	if err := s.Repo.UpdateUserLoanStatus(ctx, req.LoanID, types.LoanStatusApproved.ToString()); err != nil {
 		return ahttp.UpdateUserLoanResponse{}, err
 	}
 	return ahttp.UpdateUserLoanResponse{Status: req.Status}, nil
 }
 
 // CreateUserLoanRepayment inserts a loan repayment and updates the scheduled repayment status and loan status
-func CreateUserLoanRepayment(ctx context.Context, req ahttp.CreateUserLoanRepaymentRequest) error {
-	loanFromDB, err := mysql.GetUserLoanByID(ctx, req.UserID, req.LoanID)
+func (s Service) CreateUserLoanRepayment(ctx context.Context, req ahttp.CreateUserLoanRepaymentRequest) error {
+	loanFromDB, err := s.Repo.GetUserLoanByID(ctx, req.UserID, req.LoanID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Wrap(types.ErrNoResourceFound, "loan not found")
 		}
 		return err
 	}
-	if loanFromDB.Status != types.LoanStatusApproved.ToString() {
-		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("Loan not in APPROVED status"))
+	if loanFromDB.Status == types.LoanStatusPending.ToString() {
+		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("cannot create payment for PENDING loan"))
 	}
-	scheduledRepaymentFromDB, err := mysql.GetScheduledRepaymentsByID(ctx, req.ScheduledRepaymentID)
+	if loanFromDB.Status == types.LoanStatusPaid.ToString() {
+		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("Loan already in PAID state"))
+	}
+	scheduledRepaymentFromDB, err := s.Repo.GetScheduledRepaymentsByID(ctx, req.ScheduledRepaymentID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Wrap(types.ErrNoResourceFound, "scheduled payment not found")
@@ -122,35 +136,28 @@ func CreateUserLoanRepayment(ctx context.Context, req ahttp.CreateUserLoanRepaym
 		return errors.Wrap(types.ErrUnprocessableEntity, fmt.Sprintf("Repayment amount should be more than scheduled repayment amount"))
 	}
 
-	tx, err := mysql.GetConnection().BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	repayment := getRepayment(req)
-	if err := mysql.InsertRepayment(ctx, tx, repayment); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err := mysql.UpdateScheduledRepaymentStatus(ctx, tx, req.ScheduledRepaymentID, types.ScheduledRepaymentStatusPaid.ToString()); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	scheduledRepayments, err := mysql.GetScheduledRepaymentsByLoanID(ctx, tx, req.LoanID)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if shouldChangeLoanStatus(scheduledRepayments) {
-		if err := mysql.UpdateUserLoanStatus(ctx, tx, req.LoanID, types.LoanStatusPaid.ToString()); err != nil {
-			tx.Rollback()
+	txErr := s.Repo.RunInTransaction(ctx, func(ctx context.Context) error {
+		repayment := getRepayment(req)
+		if err := s.Repo.InsertRepayment(ctx, repayment); err != nil {
 			return err
 		}
-	}
 
-	tx.Commit()
-	return nil
+		if err := s.Repo.UpdateScheduledRepaymentStatus(ctx, req.ScheduledRepaymentID, types.ScheduledRepaymentStatusPaid.ToString()); err != nil {
+			return err
+		}
+
+		scheduledRepayments, err := s.Repo.GetScheduledRepaymentsByLoanID(ctx, req.LoanID)
+		if err != nil {
+			return err
+		}
+		if shouldChangeLoanStatus(scheduledRepayments) {
+			if err := s.Repo.UpdateUserLoanStatus(ctx, req.LoanID, types.LoanStatusPaid.ToString()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return txErr
 }
 
 func getLoanToInsert(requestLoan ahttp.CreateLoanRequest) models.UserLoan {

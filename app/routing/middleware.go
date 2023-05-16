@@ -16,7 +16,7 @@ type ContextKey string
 
 const ContextUserIDKey ContextKey = "user_id"
 
-func AuthMiddleware() func(handler http.Handler) http.Handler {
+func AuthMiddleware(repo mysql.Repo) func(handler http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, password, ok := r.BasicAuth()
@@ -24,7 +24,7 @@ func AuthMiddleware() func(handler http.Handler) http.Handler {
 				WriteError(r, w, errors.Wrap(types.ErrUnauthorized, "credentials not found in request header"))
 				return
 			}
-			userFromDB, err := mysql.GetUserByID(r.Context(), user)
+			userFromDB, err := repo.GetUserByID(r.Context(), user)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					WriteError(r, w, errors.Wrap(types.ErrUnauthorized, "user not found"))
@@ -48,7 +48,7 @@ func ValidationUserIdMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		userIDPath := chi.URLParam(r, "userID")
 		userIDAuth := r.Context().Value(ContextUserIDKey)
 		if userIDPath != userIDAuth {
-			errors.Wrap(types.ErrUnauthorized, "cannot access resources of a different user")
+			WriteError(r, w, errors.Wrap(types.ErrUnauthorized, "cannot access resources of a different user"))
 			return
 		}
 		next.ServeHTTP(w, r)

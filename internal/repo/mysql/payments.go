@@ -2,16 +2,15 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/mayankpahwa/aspire-loan-app/internal/resources/models"
 )
 
-func InsertRepayment(ctx context.Context, tx *sql.Tx, repayments models.Repayment) error {
-	insertPaymentQuery := "INSERT INTO `repayments` (`id`, `scheduled_repayments_id`, `amount`) VALUES (?, ?, ?)"
+func (r Repo) InsertRepayment(ctx context.Context, repayments models.Repayment) error {
+	insertPaymentQuery := "INSERT INTO `repayments` (`id`, `scheduled_repayment_id`, `amount`) VALUES (?, ?, ?)"
 
-	result, err := tx.ExecContext(ctx, insertPaymentQuery, repayments.ID, repayments.ScheduledRepaymentID, repayments.Amount)
+	result, err := r.GetExecutor(ctx).ExecContext(ctx, insertPaymentQuery, repayments.ID, repayments.ScheduledRepaymentID, repayments.Amount)
 	if err != nil {
 		return err
 	}

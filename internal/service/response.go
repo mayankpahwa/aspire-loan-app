@@ -22,13 +22,25 @@ func createGetUserLoansResponse(response []models.UserLoan) ahttp.GetUserLoansRe
 	return resp
 }
 
-func createGetUserLoanByIDResponse(response models.UserLoan) ahttp.SingleUserLoanResponse {
+func createGetUserLoanByIDResponse(response models.UserLoan, scheduledRepayments []models.ScheduledRepayment) ahttp.SingleUserLoanResponse {
+	scheduledRepaymentsResp := make([]ahttp.SingleScheduledRepayment, 0)
+	for _, scheduledRepayment := range scheduledRepayments {
+		singleScheduledRepayment := ahttp.SingleScheduledRepayment{
+			ID:     scheduledRepayment.ID.String(),
+			LoanID: scheduledRepayment.LoanID.String(),
+			Amount: scheduledRepayment.Amount,
+			Date:   scheduledRepayment.Date,
+			Status: scheduledRepayment.Status,
+		}
+		scheduledRepaymentsResp = append(scheduledRepaymentsResp, singleScheduledRepayment)
+	}
 	return ahttp.SingleUserLoanResponse{
-		ID:          response.ID.String(),
-		Amount:      response.Amount,
-		Term:        response.Term,
-		DateCreated: response.DateCreated,
-		Status:      response.Status,
+		ID:                  response.ID.String(),
+		Amount:              response.Amount,
+		Term:                response.Term,
+		DateCreated:         response.DateCreated,
+		Status:              response.Status,
+		ScheduledRepayments: scheduledRepaymentsResp,
 	}
 }
 

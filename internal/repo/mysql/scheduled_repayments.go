@@ -9,7 +9,7 @@ import (
 	"github.com/mayankpahwa/aspire-loan-app/internal/resources/models"
 )
 
-func InsertScheduledRepayments(ctx context.Context, tx *sql.Tx, repayments []models.ScheduledRepayment) error {
+func (r Repo) InsertScheduledRepayments(ctx context.Context, repayments []models.ScheduledRepayment) error {
 	placeholders := make([]string, 0)
 	args := make([]interface{}, 0)
 
@@ -20,7 +20,7 @@ func InsertScheduledRepayments(ctx context.Context, tx *sql.Tx, repayments []mod
 	insertRepaymentsQuery := "INSERT INTO `scheduled_repayments` (`id`, `loan_id`, `amount`, `date`, `status`) VALUES %s"
 	query := fmt.Sprintf(insertRepaymentsQuery, strings.Join(placeholders, ", "))
 
-	result, err := tx.ExecContext(ctx, query, args...)
+	result, err := r.GetExecutor(ctx).ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -32,8 +32,8 @@ func InsertScheduledRepayments(ctx context.Context, tx *sql.Tx, repayments []mod
 	return nil
 }
 
-func UpdateScheduledRepaymentStatus(ctx context.Context, tx *sql.Tx, scheduledRepaymentID, status string) error {
-	result, err := tx.
+func (r Repo) UpdateScheduledRepaymentStatus(ctx context.Context, scheduledRepaymentID, status string) error {
+	result, err := r.GetExecutor(ctx).
 		ExecContext(ctx, "UPDATE `scheduled_repayments` SET `status` = ? WHERE `id` = ?", status, scheduledRepaymentID)
 	if err != nil {
 		return err
@@ -47,15 +47,12 @@ func UpdateScheduledRepaymentStatus(ctx context.Context, tx *sql.Tx, scheduledRe
 }
 
 // GetScheduledRepaymentsByLoanID fetches all the scheduled repayments for a loanID
-func GetScheduledRepaymentsByLoanID(ctx context.Context, tx *sql.Tx, loanID string) ([]models.ScheduledRepayment, error) {
+func (r Repo) GetScheduledRepaymentsByLoanID(ctx context.Context, loanID string) ([]models.ScheduledRepayment, error) {
 	var results *sql.Rows
 	var err error
 	fetchQuery := "SELECT id, loan_id, amount, date, status FROM scheduled_repayments WHERE loan_id = ?"
-	if tx == nil {
-		results, err = GetConnection().QueryContext(ctx, fetchQuery, loanID)
-	} else {
-		results, err = tx.QueryContext(ctx, fetchQuery, loanID)
-	}
+
+	results, err = r.GetExecutor(ctx).QueryContext(ctx, fetchQuery, loanID)
 	if err != nil {
 		return []models.ScheduledRepayment{}, err
 	}
@@ -71,10 +68,10 @@ func GetScheduledRepaymentsByLoanID(ctx context.Context, tx *sql.Tx, loanID stri
 }
 
 // GetScheduledRepaymentsByID fetches a scheduled repayment by ID
-func GetScheduledRepaymentsByID(ctx context.Context, scheduledRepaymentID string) (models.ScheduledRepayment, error) {
+func (r Repo) GetScheduledRepaymentsByID(ctx context.Context, scheduledRepaymentID string) (models.ScheduledRepayment, error) {
 	var scheduledRepayment models.ScheduledRepayment
-	err := GetConnection().
-		QueryRow("SELECT id, loan_id, amount, date, status FROM scheduled_repayments WHERE id = ?", scheduledRepaymentID).
+	err := r.GetExecutor(ctx).
+		QueryRowContext(ctx, "SELECT id, loan_id, amount, date, status FROM scheduled_repayments WHERE id = ?", scheduledRepaymentID).
 		Scan(&scheduledRepayment.ID, &scheduledRepayment.LoanID, &scheduledRepayment.Amount, &scheduledRepayment.Date, &scheduledRepayment.Status)
 	if err != nil {
 		return models.ScheduledRepayment{}, err

@@ -2,14 +2,14 @@ package mysql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/mayankpahwa/aspire-loan-app/internal/resources/models"
 )
 
-func GetUserLoans(ctx context.Context, userID string) ([]models.UserLoan, error) {
-	results, err := GetConnection().Query("SELECT id, amount, term, date_created, status FROM loans WHERE user_id = ?", userID)
+func (r Repo) GetUserLoans(ctx context.Context, userID string) ([]models.UserLoan, error) {
+	results, err := r.GetExecutor(ctx).
+		QueryContext(ctx, "SELECT id, amount, term, date_created, status FROM loans WHERE user_id = ?", userID)
 	if err != nil {
 		return []models.UserLoan{}, err
 	}
@@ -24,10 +24,10 @@ func GetUserLoans(ctx context.Context, userID string) ([]models.UserLoan, error)
 	return loans, nil
 }
 
-func GetUserLoanByID(ctx context.Context, userID, loanID string) (models.UserLoan, error) {
+func (r Repo) GetUserLoanByID(ctx context.Context, userID, loanID string) (models.UserLoan, error) {
 	var loan models.UserLoan
-	err := GetConnection().
-		QueryRow("SELECT id, amount, term, date_created, status FROM loans WHERE user_id = ? AND id = ?", userID, loanID).
+	err := r.GetExecutor(ctx).
+		QueryRowContext(ctx, "SELECT id, amount, term, date_created, status FROM loans WHERE user_id = ? AND id = ?", userID, loanID).
 		Scan(&loan.ID, &loan.Amount, &loan.Term, &loan.DateCreated, &loan.Status)
 	if err != nil {
 		return models.UserLoan{}, err
@@ -35,9 +35,10 @@ func GetUserLoanByID(ctx context.Context, userID, loanID string) (models.UserLoa
 	return loan, nil
 }
 
-func InsertUserLoan(ctx context.Context, tx *sql.Tx, loanToInsert models.UserLoan) error {
-	result, err := tx.
-		ExecContext(ctx, "INSERT INTO `loans` (`id`, `user_id`, `amount`, `term`, `date_created`, `status`) VALUES (?, ?, ?, ?, ?, ?)", loanToInsert.ID, loanToInsert.UserID, loanToInsert.Amount, loanToInsert.Term, loanToInsert.DateCreated, loanToInsert.Status)
+func (r Repo) InsertUserLoan(ctx context.Context, loanToInsert models.UserLoan) error {
+	insertUserLoanQuery := "INSERT INTO `loans` (`id`, `user_id`, `amount`, `term`, `date_created`, `status`) VALUES (?, ?, ?, ?, ?, ?)"
+	result, err := r.GetExecutor(ctx).
+		ExecContext(ctx, insertUserLoanQuery, loanToInsert.ID, loanToInsert.UserID, loanToInsert.Amount, loanToInsert.Term, loanToInsert.DateCreated, loanToInsert.Status)
 	if err != nil {
 		return err
 	}
@@ -49,16 +50,10 @@ func InsertUserLoan(ctx context.Context, tx *sql.Tx, loanToInsert models.UserLoa
 	return nil
 }
 
-func UpdateUserLoanStatus(ctx context.Context, tx *sql.Tx, loanID, status string) error {
-	var result sql.Result
-	var err error
+func (r Repo) UpdateUserLoanStatus(ctx context.Context, loanID, status string) error {
 	updateQuery := "UPDATE `loans` SET `status` = ? WHERE `id` = ?"
 
-	if tx == nil {
-		result, err = GetConnection().ExecContext(ctx, updateQuery, status, loanID)
-	} else {
-		result, err = tx.ExecContext(ctx, updateQuery, status, loanID)
-	}
+	result, err := r.GetExecutor(ctx).ExecContext(ctx, updateQuery, status, loanID)
 	if err != nil {
 		return err
 	}
